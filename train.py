@@ -6,7 +6,7 @@ import os
 import time
 import datetime
 import data_helpers
-from text_cnn import TextCNN
+from phonem_cnn import PhonemCNN
 from tensorflow.contrib import learn
 
 # Parameters
@@ -14,12 +14,11 @@ from tensorflow.contrib import learn
 
 # Data loading params
 tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data to use for validation")
-tf.flags.DEFINE_string("positive_data_file", "./data/rt-polaritydata/rt-polarity.pos", "Data source for the positive data.")
-tf.flags.DEFINE_string("negative_data_file", "./data/rt-polaritydata/rt-polarity.neg", "Data source for the negative data.")
+tf.flags.DEFINE_string("data_dir", "./data/full_pc", "Data source dir.")
 
 # Model Hyperparameters
-tf.flags.DEFINE_integer("embedding_dim", 128, "Dimensionality of character embedding (default: 128)")
-tf.flags.DEFINE_string("filter_sizes", "3,4,5", "Comma-separated filter sizes (default: '3,4,5')")
+tf.flags.DEFINE_integer("embedding_dim", 0, "Dimensionality of character embedding (default: use one-hot)")
+tf.flags.DEFINE_string("filter_sizes", "2,3,4", "Comma-separated filter sizes (default: '2,3,4')")
 tf.flags.DEFINE_integer("num_filters", 128, "Number of filters per filter size (default: 128)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
@@ -47,7 +46,7 @@ def preprocess():
 
     # Load data
     print("Loading data...")
-    x_text, y = data_helpers.load_data_and_labels(FLAGS.positive_data_file, FLAGS.negative_data_file)
+    x_text, y = data_helpers.load_data_and_labels(FLAGS.data_dir)
 
     # Build vocabulary
     max_document_length = max([len(x.split(" ")) for x in x_text])
@@ -82,7 +81,7 @@ def train(x_train, y_train, vocab_processor, x_dev, y_dev):
           log_device_placement=FLAGS.log_device_placement)
         sess = tf.Session(config=session_conf)
         with sess.as_default():
-            cnn = TextCNN(
+            cnn = PhonemCNN(
                 sequence_length=x_train.shape[1],
                 num_classes=y_train.shape[1],
                 vocab_size=len(vocab_processor.vocabulary_),

@@ -2,10 +2,10 @@ import tensorflow as tf
 import numpy as np
 
 
-class TextCNN(object):
+class PhonemCNN(object):
     """
-    A CNN for text classification.
-    Uses an embedding layer, followed by a convolutional, max-pooling and softmax layer.
+    A CNN for phonem text classification.
+    Uses an embedding layer or one-hot, followed by a convolutional, max-pooling and softmax layer.
     """
     def __init__(
       self, sequence_length, num_classes, vocab_size,
@@ -19,13 +19,19 @@ class TextCNN(object):
         # Keeping track of l2 regularization loss (optional)
         l2_loss = tf.constant(0.0)
 
-        # Embedding layer
-        with tf.device('/cpu:0'), tf.name_scope("embedding"):
-            self.W = tf.Variable(
-                tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0),
-                name="W")
-            self.embedded_chars = tf.nn.embedding_lookup(self.W, self.input_x)
-            self.embedded_chars_expanded = tf.expand_dims(self.embedded_chars, -1)
+        # Embedding/one-hot layer
+        if embedding_size > 0:
+            with tf.device('/cpu:0'), tf.name_scope("embedding"):
+                self.W = tf.Variable(
+                    tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0),
+                    name="W")
+                self.embedded_chars = tf.nn.embedding_lookup(self.W, self.input_x)
+                self.embedded_chars_expanded = tf.expand_dims(self.embedded_chars, -1)
+        else:
+            embedding_size = vocab_size
+            with tf.name_scope("one-hot"):
+                self.embedded_chars = tf.one_hot(self.input_x, vocab_size)
+                self.embedded_chars_expanded = tf.expand_dims(self.embedded_chars, -1)
 
         # Create a convolution + maxpool layer for each filter size
         pooled_outputs = []
