@@ -11,16 +11,17 @@ def clean_str(string):
     return string.strip()
 
 
-def load_data_and_labels(data_dir):
+def load_data_and_labels(data_list_file):
     """
     Loads data from data_dir, splits the data into phonemes and generates labels.
     Returns split sentences and labels.
     """
-    labels_list = os.listdir(data_dir)
+    labels_list = list(open(data_list_file).readlines())
     x_text = []
     y = []
     for label_file in labels_list:
-        examples = list(open(data_dir + '/' + label_file, "r").readlines())
+        label_file = label_file.strip()
+        examples = list(open(os.path.dirname(data_list_file) + '/' + label_file, "r").readlines())
         examples = [clean_str(s) for s in examples]
         x_text += examples
         label = [0] * len(labels_list)

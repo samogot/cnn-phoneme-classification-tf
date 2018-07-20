@@ -14,7 +14,7 @@ import csv
 # ==================================================
 
 # Data Parameters
-tf.flags.DEFINE_string("data_dir", "./data/full_pc", "Data source dir.")
+tf.flags.DEFINE_string("data_list_file", "./data/full_pc/context_21.txt", "Data source context file.")
 
 # Eval Parameters
 tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
@@ -35,7 +35,7 @@ FLAGS = tf.flags.FLAGS
 
 # CHANGE THIS: Load data. Load your own data here
 if FLAGS.eval_train:
-    x_raw, y_test = data_helpers.load_data_and_labels(FLAGS.data_dir)
+    x_raw, y_test = data_helpers.load_data_and_labels(FLAGS.data_list_file)
     y_test = np.argmax(y_test, axis=1)
 else:
     x_raw = ["a masterpiece four years in the making", "everything is off."]

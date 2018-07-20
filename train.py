@@ -14,7 +14,7 @@ from tensorflow.contrib import learn
 
 # Data loading params
 tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data to use for validation")
-tf.flags.DEFINE_string("data_dir", "./data/full_pc", "Data source dir.")
+tf.flags.DEFINE_string("data_list_file", "./data/full_pc/context_21.txt", "Data source context file.")
 
 # Model Hyperparameters
 tf.flags.DEFINE_integer("embedding_dim", 0, "Dimensionality of character embedding (default: use one-hot)")
@@ -46,7 +46,7 @@ def preprocess():
 
     # Load data
     print("Loading data...")
-    x_text, y = data_helpers.load_data_and_labels(FLAGS.data_dir)
+    x_text, y = data_helpers.load_data_and_labels(FLAGS.data_list_file)
 
     # Build vocabulary
     max_document_length = max([len(x.split(" ")) for x in x_text])
