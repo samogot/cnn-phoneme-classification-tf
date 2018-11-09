@@ -8,13 +8,15 @@ import datetime
 import data_helpers
 from phonem_cnn import PhonemCNN
 from tensorflow.contrib import learn
+from sklearn.model_selection import KFold
+from sklearn.metrics import accuracy_score
 
 # Parameters
 # ==================================================
 
 # Data loading params
-tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data to use for validation")
-tf.flags.DEFINE_string("data_list_file", "./data/full_pc/context_21.txt", "Data source context file.")
+tf.flags.DEFINE_integer("cross_validation_groups", 5, "Groups for splitting between trainig and validation")
+tf.flags.DEFINE_string("data_list_file", "./data/full_pc/context_{}.txt", "Data source context file.")
 
 # Model Hyperparameters
 tf.flags.DEFINE_integer("embedding_dim", 0, "Dimensionality of character embedding (default: use one-hot)")
@@ -40,13 +42,13 @@ FLAGS = tf.flags.FLAGS
 #     print("{}={}".format(attr.upper(), value))
 # print("")
 
-def preprocess():
+def preprocess(data_list_file):
     # Data Preparation
     # ==================================================
 
     # Load data
     print("Loading data...")
-    x_text, y = data_helpers.load_data_and_labels(FLAGS.data_list_file)
+    x_text, y, y_labels = data_helpers.load_data_and_labels(data_list_file)
 
     # Build vocabulary
     max_document_length = max([len(x.split(" ")) for x in x_text])
@@ -58,18 +60,22 @@ def preprocess():
     shuffle_indices = np.random.permutation(np.arange(len(y)))
     x_shuffled = x[shuffle_indices]
     y_shuffled = y[shuffle_indices]
+    y_labels_shuffled = y_labels[shuffle_indices]
+
+    del x, y, y_labels
+
+    print("Vocabulary Size: {:d}".format(len(vocab_processor.vocabulary_)))
+    return x_shuffled, y_shuffled, vocab_processor, y_labels_shuffled
+
+def split_cross_validation(x_shuffled, y_shuffled, group):
 
     # Split train/test set
-    # TODO: This is very crude, should use cross-validation
-    dev_sample_index = -1 * int(FLAGS.dev_sample_percentage * float(len(y)))
+    dev_sample_index = -1 * int(float(len(y))/FLAGS.cross_validation_groups)
     x_train, x_dev = x_shuffled[:dev_sample_index], x_shuffled[dev_sample_index:]
     y_train, y_dev = y_shuffled[:dev_sample_index], y_shuffled[dev_sample_index:]
 
-    del x, y, x_shuffled, y_shuffled
-
-    print("Vocabulary Size: {:d}".format(len(vocab_processor.vocabulary_)))
     print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_dev)))
-    return x_train, y_train, vocab_processor, x_dev, y_dev
+    return x_train, y_train, x_dev, y_dev
 
 def train(x_train, y_train, vocab_processor, x_dev, y_dev):
     # Training
@@ -187,9 +193,35 @@ def train(x_train, y_train, vocab_processor, x_dev, y_dev):
                     path = saver.save(sess, checkpoint_prefix, global_step=current_step)
                     print("Saved model checkpoint to {}\n".format(path))
 
+            feed_dict = {
+                cnn.input_x: x_dev,
+                cnn.input_y: y_dev,
+                cnn.dropout_keep_prob: 1.0
+            }
+            predictions = sess.run([cnn.predictions], feed_dict)
+            return predictions
+
 def main(argv=None):
-    x_train, y_train, vocab_processor, x_dev, y_dev = preprocess()
-    train(x_train, y_train, vocab_processor, x_dev, y_dev)
+    context_data = {}
+    for context in range(1, 22):
+        if context == 2:
+            continue
+        data_list_file = FLAGS.data_list_file.format(context)
+        print(data_list_file)
+        x_shuffled, y_shuffled, vocab_processor, y_labels_shuffled = preprocess(data_list_file)
+        kf = KFold(n_splits=FLAGS.cross_validation_groups)
+        y_predictions = np.zeros(y_labels_shuffled.shape)
+        for train_indexes, test_indexes in kf.split(y_shuffled):
+            print("NEXT KFOLD GROUP\n")
+            x_train, x_dev = x_shuffled[train_indexes], x_shuffled[test_indexes]
+            y_train, y_dev = y_shuffled[train_indexes], y_shuffled[test_indexes]
+            y_dev_predictions = train(x_train, y_train, vocab_processor, x_dev, y_dev)
+            y_predictions[test_indexes] = y_dev_predictions
+        freq=accuracy_score(y_labels_shuffled, y_predictions, normalize=False)
+        print("context={}, accuracy={}, freq={}, count={}".format(context, freq/float(len(y_shuffled))*100, freq, len(y_shuffled)))
+        context_data[context] = (context, freq/float(len(y_shuffled))*100, freq, len(y_shuffled), y_labels_shuffled, y_predictions)
+    print(context_data)
+
 
 if __name__ == '__main__':
     tf.app.run()
